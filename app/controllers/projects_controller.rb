@@ -86,7 +86,7 @@ class ProjectsController < ApplicationController
 
   # Given a filename, view it's entire commit history, including author
   # information, etc. Only one file's history may be viewed at a time, so
-  # please not that this is different from the project's commit history.
+  # please note that this is different from the project's commit history.
 
   def file_history
     @bloblist = Array.new
@@ -110,6 +110,19 @@ class ProjectsController < ApplicationController
     @git_dir = "/#{@project.user.email}/#{@project.name}"
     render :layout => false, :content_type => content_type
   end
+
+  # Let's users upload a new file to the project through a 
+  # different page. Original functionality used to exist in the
+  # project show page, moved to a separate page now.
+
+  def newfile
+    @project = Project.find params[:id]
+  end
+
+  def update
+    @project = Project.find params[:id]
+  end
+
 
   # Let's users upload new files to the project. The new files are
   # also commited to the backend git repository. They're added to the non_bare 
@@ -143,7 +156,7 @@ class ProjectsController < ApplicationController
     FileUtils.cp tmp.path, file
     if params[:file]
         imagefile = params[:file]
-        message = "updated #{params[:image_name]}"
+        message = params[:message]
         commit @project.path, params[:image_name], imagefile.read, message
         flash[:notice] = "#{params[:image_name]} has been updated! Shiny!"
     else
@@ -225,11 +238,12 @@ class ProjectsController < ApplicationController
     @forked_repo = Grit::Repo.init_bare_or_open(File.join (@forked_project.path) , '.git')
     # test if the last commit in the parent and in this for is the same. if yes, then
     # dont allow pull requests, its up to date
+
     if @parent_repo.commits.first.id == @forked_repo.commits.first.id
       flash[:notice] = "Nothing to pull, the parent project is up to date! :)"
       redirect_to url_for @forked_project
     else
-      request = PullRequest.new :desc => 'Pull request description - have to allow user to add these',
+      request = PullRequest.znew :desc => params[:description],
                                 :fork => @forked_project.id,
                                 :parent => @parent_project.id,
                                 :status => 'open'
@@ -238,6 +252,7 @@ class ProjectsController < ApplicationController
         FileUtils.cp_r(@forked_project.path, @forked_project.path + request.id.to_s)
         redirect_to File.join(url_for(@parent_project), 'pulls')
       else
+        flash[:error] = "Damn, something went wrong. Please try again!"
         redirect_to dashboard_path
       end
     end
@@ -254,6 +269,7 @@ class ProjectsController < ApplicationController
   def pull
     @project = Project.find params[:id]
     @pull = PullRequest.find params[:pull_id]
+    @comments = Comment.where(polycomment_type: "pull", polycomment_id: @pull.id)
   end
 
   # allow merging a pull request
@@ -268,10 +284,15 @@ class ProjectsController < ApplicationController
 
     @pull.status = 'merged'
     @pull.save
+    
+    flash[:notice] = "Pull request #{@pull.id} has successfully been merged!"
 
     @pulls = PullRequest.where("parent=?",@project.id)
     @pulls.each do |pull|
       if pull.id < @pull.id and pull.fork == @pull.fork and pull.status == 'open'
+
+        FileUtils.rm_r(@forked_project.path + pull.id.to_s)
+        
         pull.status = 'automatically merged'
         pull.save
       end
@@ -317,7 +338,7 @@ class ProjectsController < ApplicationController
     filename = params[:filename].squish.downcase.tr(" ","_") + '.svg'
     file = File.open(File.join(@project.path, filename), 'w+') {|f| f.write(params[:sketch]) }
     if file
-      commit @project.path, filename, Base64.decode64(params[:sketch]), "created #{filename}"
+      commit @project.path, filename, Base64.decode64(params[:sketch]), "Create #{filename}"
       flash[:notice] = "Your new image was added successfully! How sparkly!"
     else
       flash[:alert]  = "Your new image didn't get saved! How sad :("
@@ -339,7 +360,7 @@ class ProjectsController < ApplicationController
     file = File.open(File.join(@project.path, filename), 'w+') {|f| f.write(params[:sketch]) }
 
     if file
-        message = "updated #{filename}"
+        message = params[:message]
         commit @project.path, filename, Base64.decode64(params[:sketch]), message
         flash[:notice] = "#{filename} has been updated! Shiny!"
     else

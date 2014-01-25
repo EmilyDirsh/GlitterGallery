@@ -11,7 +11,9 @@ Glitter::Application.routes.draw do
   get 'projects/:id/masterbranch/:image_name' => 'projects#masterbranch', :image_name => /[^\/]*/
   get 'projects/:id/masterbranch/:image_name/history' => 'projects#file_history', :image_name => /[^\/]*/
   get 'projects/:id/createsvg' => 'projects#new_svg'
+  get 'projects/:id/newfile' => 'projects#newfile'
   get 'projects/:id/masterbranch/:image_name/edit' => 'projects#edit_svg', :image_name => /[^\/]*/
+  get 'projects/:id/masterbranch/:image_name/update' => 'projects#update', :image_name => /[^\/]*/
   get 'projects/:id/fork' => 'projects#fork'
   get 'projects/:id/forkyou' => 'projects#forkyou'
   get 'projects/:id/pull' => 'projects#pull_request'
